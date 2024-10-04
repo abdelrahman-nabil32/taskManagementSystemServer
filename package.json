@@ -1,7 +1,7 @@
 {
-  "name": "bookshopback-end",
+  "name": "task-management-system-server",
   "version": "1.0.0",
-  "description": "this is a server to manage book shop database",
+  "description": "This is a Backend for task management system",
   "main": "index.js",
   "scripts": {
     "start": "nodemon index.js"
