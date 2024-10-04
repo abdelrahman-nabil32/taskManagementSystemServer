@@ -92,6 +92,17 @@ const teamAddRequestSending = async (req, res) => {
         .status(404)
         .json({ status: "FAIL", message: "this email does not exist!" });
     }
+    //check if the recipient email is already involved in the team or not
+    let isOnTheTeamFlag = false;
+    checkedTeam.members.forEach((ele) => {
+      if (ele.ID == `${checkedUser["_id"]}`) isOnTheTeamFlag = true;
+    });
+    if (isOnTheTeamFlag) {
+      return res.status(400).json({
+        status: "FAIL",
+        message: "This User is already a member of the team!",
+      });
+    }
     //create informative notification for the sender to inform him ,his add request is pending
     let newSenderPendingNotification = new NotificationModel({
       recipient: new mongoose.Types.ObjectId(req.user._id),
@@ -152,8 +163,9 @@ const teamAddRequestResponse = async (req, res) => {
 
   try {
     //search for wanted notification
-    let wantedAddRequestNotification =
-      await NotificationModel.findByIdAndDelete(addRequestNotificationID);
+    let wantedAddRequestNotification = await NotificationModel.findById(
+      addRequestNotificationID
+    );
     if (!wantedAddRequestNotification) {
       return res.status(404).json({
         status: "FAIL",
@@ -161,10 +173,20 @@ const teamAddRequestResponse = async (req, res) => {
           "the add request notification that we want to create a response to does not exist!",
       });
     }
+    //check wether the user which will interact with this request response is the wanted one
+    if (req.user._id != `${wantedAddRequestNotification.recipient}`) {
+      return res.status(400).json({
+        status: "FAIL",
+        message: "This user isn't allowed to interact with this add request!",
+      });
+    }
     if (decidedResponse === "confirm") {
       //search for the wanted-to-be-added-to-team user
-      let wantedToBeAddedUser = await UserModel.findById(req.user._id);
+      let wantedToBeAddedUser = await UserModel.findById(
+        wantedAddRequestNotification.recipient
+      );
       if (!wantedToBeAddedUser) {
+        await NotificationModel.findByIdAndDelete(addRequestNotificationID);
         return res.status(404).json({
           status: "FAIL",
           message:
@@ -176,6 +198,7 @@ const teamAddRequestResponse = async (req, res) => {
         wantedAddRequestNotification.teamAddingRequestInfo.teamID
       );
       if (!addedToTeam) {
+        await NotificationModel.findByIdAndDelete(addRequestNotificationID);
         return res.status(404).json({
           status: "FAIL",
           message: "The team you want to add the user to doesn't exist!",
@@ -247,6 +270,7 @@ const teamAddRequestResponse = async (req, res) => {
         wantedAddRequestNotification.teamAddingRequestInfo.teamID
       );
       if (!addedToTeam) {
+        await NotificationModel.findByIdAndDelete(addRequestNotificationID);
         return res.status(404).json({
           status: "FAIL",
           message: "The team you want to add the user to doesn't exist!",
@@ -286,7 +310,11 @@ const teamAddRequestResponse = async (req, res) => {
         await newsenderActionInformativeNotification.save();
       }
     }
-    return res.status(200).json({status:"SUCCESS",message:"The Add Request Response was handled successfully"});
+    await NotificationModel.findByIdAndDelete(addRequestNotificationID);
+    return res.status(200).json({
+      status: "SUCCESS",
+      message: "The Add Request Response was handled successfully",
+    });
   } catch (error) {
     return res.status(400).json({ status: "ERROR", message: error.message });
   }
@@ -295,5 +323,5 @@ const teamAddRequestResponse = async (req, res) => {
 module.exports = {
   createNewTeam,
   teamAddRequestSending,
-  teamAddRequestResponse
+  teamAddRequestResponse,
 };

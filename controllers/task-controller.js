@@ -162,13 +162,11 @@ const addNewTask = async (req, res) => {
   }
   let taskDeadline = new Date(dueDate);
   if (!checkIfSpecificTimeIsInFutureByActualTime(taskDeadline, taskTimeZone))
-    return res
-      .status(400)
-      .json({
-        status: "FAIL",
-        message:
-          "The task deadline time is in the past. Please select a future date and time.",
-      });
+    return res.status(400).json({
+      status: "FAIL",
+      message:
+        "The task deadline time is in the past. Please select a future date and time.",
+    });
 
   if (
     !checkIfSpecificTimeIsInFutureByReminderTimes(
@@ -178,13 +176,11 @@ const addNewTask = async (req, res) => {
       taskTimeZone
     )
   )
-    return res
-      .status(400)
-      .json({
-        status: "FAIL",
-        message:
-          "The task reminder time is in the past. Please select a future date and time.",
-      });
+    return res.status(400).json({
+      status: "FAIL",
+      message:
+        "The task reminder time is in the past. Please select a future date and time.",
+    });
   // assigning info validation
   if (assigningType) assigningType = assigningType.trim();
   if (teamID) teamID = teamID.trim();
@@ -225,6 +221,25 @@ const addNewTask = async (req, res) => {
         false
       );
     } else if (assigningType === "team") {
+      //searching for the team before assigning the task to it
+      const checkedTeam = await TeamModel.findById(teamID);
+      if (!checkedTeam)
+        return res
+          .status(404)
+          .json({ status: "FAIL", message: "This team doesn't exist!" });
+      //check the authorization of the team member who wants to do this action
+      let isAllowedFlag = false;
+      checkedTeam.members.forEach((ele) => {
+        if (ele.ID == req.user._id && ele.role === "admin")
+          isAllowedFlag = true;
+      });
+      if (!isAllowedFlag) {
+        return res.status(400).json({
+          status: "FAIL",
+          message: "this Action is allowed only for admins!",
+        });
+      }
+      //creating a new Task to assign to the team
       let newTask = new TaskModel({
         title,
         description,
@@ -239,11 +254,6 @@ const addNewTask = async (req, res) => {
       let createdTask = await newTask.save();
       let createdTaskID = createdTask["_id"];
       //create the notifications related to this new task for all team members
-      const checkedTeam = await TeamModel.findById(teamID);
-      if (!checkedTeam)
-        return res
-          .status(404)
-          .json({ status: "FAIL", message: "This team doesn't exist!" });
       let teamMembersIDsArray = checkedTeam.members.map((ele) => ele.ID);
       scheduleTaskReminderNotifications(
         createdTaskID,
@@ -268,7 +278,7 @@ module.exports = {
   addNewTask,
   scheduleTaskReminderNotifications,
   checkIfSpecificTimeIsInFutureByReminderTimes,
-  checkIfSpecificTimeIsInFutureByActualTime
+  checkIfSpecificTimeIsInFutureByActualTime,
 };
 
 //current time Zone is : Africa/Cairo
