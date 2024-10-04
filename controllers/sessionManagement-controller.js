@@ -37,10 +37,6 @@ const registration = async (req, res) => {
     return res.status(400).json({
       status: "FAIL",
       message: "All user fields shouldn't be empty",
-      fullName:fullName,
-      username:username,
-      email:email,
-      password:password
     });
   } else if (/\s/.test(username)) {
     return res
@@ -97,7 +93,6 @@ const registration = async (req, res) => {
     ); // may be changes here
     //storing the refresh token in db
     savedUser.refreshToken = refreshToken;
-    const fullName = savedUser.fullName;
     await savedUser.save();
     //sending the tokens to client
     return res.status(200).json({
