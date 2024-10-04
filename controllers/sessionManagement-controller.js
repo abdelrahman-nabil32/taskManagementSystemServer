@@ -37,6 +37,10 @@ const registration = async (req, res) => {
     return res.status(400).json({
       status: "FAIL",
       message: "All user fields shouldn't be empty",
+      fullName:fullName,
+      username:username,
+      email:email,
+      password:password
     });
   } else if (/\s/.test(username)) {
     return res
