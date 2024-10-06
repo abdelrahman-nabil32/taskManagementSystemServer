@@ -12,6 +12,7 @@ const checkIfSpecificTimeIsInFutureByReminderTimes = (
   reminderUnit,
   taskTimeZone
 ) => {
+  reminderTimes = parseInt(reminderTimes);
   let reminderDate = moment.tz(taskDeadline, taskTimeZone);
   switch (reminderUnit) {
     case "minutes":
@@ -47,6 +48,7 @@ const scheduleTaskReminderNotifications = (
   taskTimeZone,
   isTeam
 ) => {
+  reminderTimes = parseInt(reminderTimes);
   let reminderDate = moment.tz(taskDeadline, taskTimeZone);
 
   // Calculate the reminder date based on the unit provided by the user
@@ -98,6 +100,7 @@ const scheduleTaskReminderNotifications = (
           tempDeadlineReminderMessage = `You have missed the deadline for your "${checkedTask.title}" task which related to your "${checkedTask.relatedTeam.name}" team.`;
         } else {
           checkedTask = await TaskModel.findById(taskId);
+          // correction
           tempDeadlineReminderMessage = `You have missed the deadline for your "${checkedTask.title}" task.`;
         }
         if (checkedTask && checkedTask.status !== "completed") {
@@ -160,8 +163,8 @@ const addNewTask = async (req, res) => {
       message: "All Task fields shouldn't be empty",
     });
   }
-  let taskDeadline = new Date(dueDate);
-  if (!checkIfSpecificTimeIsInFutureByActualTime(taskDeadline, taskTimeZone))
+  reminderTimes = parseInt(reminderTimes);
+  if (!checkIfSpecificTimeIsInFutureByActualTime(dueDate, taskTimeZone))
     return res.status(400).json({
       status: "FAIL",
       message:
@@ -170,7 +173,7 @@ const addNewTask = async (req, res) => {
 
   if (
     !checkIfSpecificTimeIsInFutureByReminderTimes(
-      taskDeadline,
+      dueDate,
       reminderTimes,
       reminderUnit,
       taskTimeZone
@@ -202,7 +205,7 @@ const addNewTask = async (req, res) => {
         description,
         category,
         priority,
-        dueDate: taskDeadline,
+        dueDate,
         relatedUser: new mongoose.Types.ObjectId(req.user["_id"]),
         reminderTimes,
         reminderUnit,
@@ -213,7 +216,7 @@ const addNewTask = async (req, res) => {
       //create the notifications related to this new task
       scheduleTaskReminderNotifications(
         createdTaskID,
-        taskDeadline,
+        dueDate,
         [req.user["_id"]],
         reminderTimes,
         reminderUnit,
@@ -245,7 +248,7 @@ const addNewTask = async (req, res) => {
         description,
         category,
         priority,
-        dueDate: taskDeadline,
+        dueDate,
         relatedTeam: new mongoose.Types.ObjectId(teamID),
         reminderTimes,
         reminderUnit,
@@ -257,7 +260,7 @@ const addNewTask = async (req, res) => {
       let teamMembersIDsArray = checkedTeam.members.map((ele) => ele.ID);
       scheduleTaskReminderNotifications(
         createdTaskID,
-        taskDeadline,
+        dueDate,
         teamMembersIDsArray,
         reminderTimes,
         reminderUnit,
@@ -273,12 +276,32 @@ const addNewTask = async (req, res) => {
     return res.status(400).json({ status: "ERROR", message: error.message });
   }
 };
+const showAllUserTasks = async (req, res) => {
+  try {
+    const AllUserTasksArray = await TaskModel.find(
+      {
+        relatedUser: new mongoose.Types.ObjectId(req.user["_id"]),
+      },
+      {
+        relatedUser: false,
+        relatedTeam: false,
+        __v: false,
+      }
+    );
+    return res
+      .status(200)
+      .json({ status: "SUCCESS", userTasks: AllUserTasksArray });
+  } catch (error) {
+    return res.status(400).json({ status: "ERROR", message: error.message });
+  }
+};
 
 module.exports = {
   addNewTask,
   scheduleTaskReminderNotifications,
   checkIfSpecificTimeIsInFutureByReminderTimes,
   checkIfSpecificTimeIsInFutureByActualTime,
+  showAllUserTasks
 };
 
 //current time Zone is : Africa/Cairo
