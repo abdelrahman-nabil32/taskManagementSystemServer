@@ -204,6 +204,7 @@ const addNewTask = async (req, res) => {
     });
 
   try {
+    let readyToBeSendTask;
     if (assigningType === "user") {
       let newTask = new TaskModel({
         title,
@@ -217,6 +218,7 @@ const addNewTask = async (req, res) => {
         remindersTimeZone: taskTimeZone,
       });
       let createdTask = await newTask.save();
+      readyToBeSendTask = createdTask;
       let createdTaskID = createdTask["_id"];
       //create the notifications related to this new task
       scheduleTaskReminderNotifications(
@@ -260,6 +262,7 @@ const addNewTask = async (req, res) => {
         remindersTimeZone: taskTimeZone,
       });
       let createdTask = await newTask.save();
+      readyToBeSendTask = createdTask;
       let createdTaskID = createdTask["_id"];
       //create the notifications related to this new task for all team members
       let teamMembersIDsArray = checkedTeam.members.map((ele) => ele.ID);
@@ -276,6 +279,9 @@ const addNewTask = async (req, res) => {
     return res.status(201).json({
       status: "SUCCESS",
       message: "The new Task was created successfully.",
+      data:{
+        createdTask:readyToBeSendTask
+      }
     });
   } catch (error) {
     return res.status(400).json({ status: "ERROR", message: error.message });
