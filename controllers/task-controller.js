@@ -69,6 +69,8 @@ const scheduleTaskReminderNotifications = (
   for (let i = 0; i < arrayOfUsersIDs.length; ++i) {
     // Schedule reminder notification
     schedule.scheduleJob(reminderDate.toDate(), async () => {
+      console.log("reminder time required : "+reminderDate.toDate());
+      console.log("reminder time real : "+ moment.tz(taskTimeZone).toDate());
       let tempReminderMessage, checkedTask;
       if (isTeam) {
         checkedTask = await TaskModel.findById(taskId).populate("relatedTeam");
@@ -92,6 +94,9 @@ const scheduleTaskReminderNotifications = (
     schedule.scheduleJob(
       moment.tz(taskDeadline, taskTimeZone).toDate(),
       async () => {
+      console.log("deadline "+moment.tz(taskDeadline, taskTimeZone).toDate());
+      console.log("deadline real : "+ moment.tz(taskTimeZone).toDate());
+
         let tempDeadlineReminderMessage, checkedTask;
         if (isTeam) {
           checkedTask = await TaskModel.findById(taskId).populate(
