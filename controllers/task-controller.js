@@ -276,11 +276,26 @@ const addNewTask = async (req, res) => {
         true
       );
     }
+
+    // readyToBeSendTask
     return res.status(201).json({
       status: "SUCCESS",
       message: "The new Task was created successfully.",
       data:{
-        createdTask:readyToBeSendTask
+        createdTask:{
+          _id:readyToBeSendTask._id,
+          title:readyToBeSendTask.title,
+          description:readyToBeSendTask.description,
+          category:readyToBeSendTask.category,
+          priority:readyToBeSendTask.priority,
+          dueDate:readyToBeSendTask.dueDate,
+          status:readyToBeSendTask.status,
+          reminderTimes:readyToBeSendTask.reminderTimes,
+          reminderUnit:readyToBeSendTask.reminderUnit,
+          remindersTimeZone:readyToBeSendTask.remindersTimeZone,
+          createdAt:readyToBeSendTask.createdAt,
+          updatedAt:readyToBeSendTask.updatedAt
+        }
       }
     });
   } catch (error) {

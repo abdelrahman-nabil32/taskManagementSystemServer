@@ -44,6 +44,14 @@ const createNewTeam = async (req, res) => {
     return res.status(201).json({
       status: "SUCCESS",
       message: "The new Team was created successfully",
+      createdTeam:{
+        _id:savedTeam._id,
+        name:savedTeam.name,
+        description:savedTeam.description,
+        members:savedTeam.members,
+        createdAt:savedTeam.createdAt,
+        updatedAt:savedTeam.updatedAt
+      }
     });
   } catch (error) {
     return res.status(400).json({ status: "ERROR", message: error.message });
@@ -223,9 +231,9 @@ const teamAddRequestResponse = async (req, res) => {
       for (let i = 0; i < teamTasksArray.length; ++i) {
         taskController.scheduleTaskReminderNotifications(
           teamTasksArray[i]._id,
-          new Date(teamTasksArray[i].dueDate),
+          teamTasksArray[i].dueDate,
           [wantedToBeAddedUser._id],
-          teamTasksArray[i].reminderTimes,
+          parseInt(teamTasksArray[i].reminderTimes),
           teamTasksArray[i].reminderUnit,
           teamTasksArray[i].remindersTimeZone,
           true
