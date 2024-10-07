@@ -40,20 +40,24 @@ const createNewTeam = async (req, res) => {
 
     wantedUser.userTeamsArray.push(savedTeam["_id"]);
     await wantedUser.save();
-
+    //preparing the members field of the created team before sending it to hide the mongodb _id
+    let preparedMembersArray = savedTeam.members.map((ele) => {
+      const { ID, role } = ele;
+      return { ID, role };
+    });
     return res.status(201).json({
       status: "SUCCESS",
       message: "The new Team was created successfully",
-      data:{
-      createdTeam:{
-        _id:savedTeam._id,
-        name:savedTeam.name,
-        description:savedTeam.description,
-        members:savedTeam.members,
-        createdAt:savedTeam.createdAt,
-        updatedAt:savedTeam.updatedAt
-      }
-    }
+      data: {
+        createdTeam: {
+          _id: savedTeam._id,
+          name: savedTeam.name,
+          description: savedTeam.description,
+          members: preparedMembersArray,
+          createdAt: savedTeam.createdAt,
+          updatedAt: savedTeam.updatedAt,
+        },
+      },
     });
   } catch (error) {
     return res.status(400).json({ status: "ERROR", message: error.message });
@@ -329,9 +333,34 @@ const teamAddRequestResponse = async (req, res) => {
     return res.status(400).json({ status: "ERROR", message: error.message });
   }
 };
+const showAllUserTeams = async (req, res) => {
+  try {
+    const wantedUser = await UserModel.findById(req.user._id);
+    if (!wantedUser) {
+      return res
+        .status(404)
+        .json({ status: "FAIL", message: "This user doesn't exist!" });
+    }
+    let userTeamsIDsArray = wantedUser.userTeamsArray;
+    let userTeamsArray = [];
+    for (let i = 0; i < userTeamsIDsArray.length; ++i) {
+      let temp = await TeamModel.findById(userTeamsIDsArray[i], {
+        __v: false,
+      });
+      if (temp) {
+        userTeamsArray.push(temp);
+      }
+    }
+
+    return res.status(200).json({ status: "SUCCESS", data: userTeamsArray });
+  } catch (error) {
+    return res.status(400).json({ status: "ERROR", message: error.message });
+  }
+};
 
 module.exports = {
   createNewTeam,
   teamAddRequestSending,
   teamAddRequestResponse,
+  showAllUserTeams
 };

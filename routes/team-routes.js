@@ -6,6 +6,7 @@ const teamRouter = express.Router();
 teamRouter.post("/add/newTeam",sessionController.accessTokenValidation,teamController.createNewTeam);
 teamRouter.post("/send/teamAddRequest",sessionController.accessTokenValidation,teamController.teamAddRequestSending);
 teamRouter.post("/response/teamAddRequest",sessionController.accessTokenValidation,teamController.teamAddRequestResponse);
+teamRouter.get("/show/allUserTeams",sessionController.accessTokenValidation,teamController.showAllUserTeams);
 
 
 module.exports = teamRouter;
