@@ -44,6 +44,7 @@ const createNewTeam = async (req, res) => {
     return res.status(201).json({
       status: "SUCCESS",
       message: "The new Team was created successfully",
+      data:{
       createdTeam:{
         _id:savedTeam._id,
         name:savedTeam.name,
@@ -52,6 +53,7 @@ const createNewTeam = async (req, res) => {
         createdAt:savedTeam.createdAt,
         updatedAt:savedTeam.updatedAt
       }
+    }
     });
   } catch (error) {
     return res.status(400).json({ status: "ERROR", message: error.message });
