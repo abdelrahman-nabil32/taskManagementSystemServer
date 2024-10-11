@@ -1,0 +1,9 @@
+const express = require('express');
+const sessionController = require('../controllers/sessionManagement-controller');
+const notificationController = require('../controllers/notification-controller');
+const notificationRouter = express.Router();
+
+notificationRouter.get("/show/allUserNotifications",sessionController.accessTokenValidation,notificationController.showAllUserNotifications);
+notificationRouter.delete("/delete/oneNotification",sessionController.accessTokenValidation,notificationController.deleteNotification);
+
+module.exports = notificationRouter;

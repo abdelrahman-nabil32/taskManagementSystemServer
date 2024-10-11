@@ -5,6 +5,7 @@ const TaskModel = require("../models/Task-model");
 const UserModel = require("../models/User-model");
 const TeamModel = require("../models/Team-model");
 const NotificationModel = require("../models/Notification-model");
+const agendaController = require("./agenda-controller");
 
 const checkIfSpecificTimeIsInFutureByReminderTimes = (
   taskDeadline,
@@ -68,55 +69,23 @@ const scheduleTaskReminderNotifications = (
   }
   for (let i = 0; i < arrayOfUsersIDs.length; ++i) {
     // Schedule reminder notification
-    schedule.scheduleJob(reminderDate.toDate(), async () => {
-      console.log("reminder time required : "+reminderDate.toDate());
-      console.log("reminder time real : "+ moment.tz(taskTimeZone).toDate());
-      let tempReminderMessage, checkedTask;
-      if (isTeam) {
-        checkedTask = await TaskModel.findById(taskId).populate("relatedTeam");
-        tempReminderMessage = `Reminder: you have a "${checkedTask.title}" task related to Your "${checkedTask.relatedTeam.name}" team, this task is due in ${reminderTimes} ${reminderUnit}.`;
-      } else {
-        checkedTask = await TaskModel.findById(taskId);
-        tempReminderMessage = `Reminder: Your "${checkedTask.title}" task is due in ${reminderTimes} ${reminderUnit}.`;
+    agendaController.agenda.schedule(
+      reminderDate.toDate(),
+      "send reminder notification",
+      {
+        taskId,
+        recipientId: arrayOfUsersIDs[i],
+        isTeam,
       }
-      if (checkedTask && checkedTask.status !== "completed") {
-        const newNotification = new NotificationModel({
-          recipient: arrayOfUsersIDs[i],
-          message: tempReminderMessage,
-          type: "informative",
-          relatedTask: taskId,
-        });
-        await newNotification.save();
-      }
-    });
-
+    );
     // Schedule notification for missing deadline if the task is not completed
-    schedule.scheduleJob(
+    agendaController.agenda.schedule(
       moment.tz(taskDeadline, taskTimeZone).toDate(),
-      async () => {
-      console.log("deadline "+moment.tz(taskDeadline, taskTimeZone).toDate());
-      console.log("deadline real : "+ moment.tz(taskTimeZone).toDate());
-
-        let tempDeadlineReminderMessage, checkedTask;
-        if (isTeam) {
-          checkedTask = await TaskModel.findById(taskId).populate(
-            "relatedTeam"
-          );
-          tempDeadlineReminderMessage = `You have missed the deadline for your "${checkedTask.title}" task which related to your "${checkedTask.relatedTeam.name}" team.`;
-        } else {
-          checkedTask = await TaskModel.findById(taskId);
-          // correction
-          tempDeadlineReminderMessage = `You have missed the deadline for your "${checkedTask.title}" task.`;
-        }
-        if (checkedTask && checkedTask.status !== "completed") {
-          const newNotification = new NotificationModel({
-            recipient: arrayOfUsersIDs[i],
-            message: tempDeadlineReminderMessage,
-            type: "informative",
-            relatedTask: taskId,
-          });
-          await newNotification.save();
-        }
+      "send deadline notification",
+      {
+        taskId,
+        recipientId: arrayOfUsersIDs[i],
+        isTeam,
       }
     );
   }
@@ -281,22 +250,22 @@ const addNewTask = async (req, res) => {
     return res.status(201).json({
       status: "SUCCESS",
       message: "The new Task was created successfully.",
-      data:{
-        createdTask:{
-          _id:readyToBeSendTask._id,
-          title:readyToBeSendTask.title,
-          description:readyToBeSendTask.description,
-          category:readyToBeSendTask.category,
-          priority:readyToBeSendTask.priority,
-          dueDate:readyToBeSendTask.dueDate,
-          status:readyToBeSendTask.status,
-          reminderTimes:readyToBeSendTask.reminderTimes,
-          reminderUnit:readyToBeSendTask.reminderUnit,
-          remindersTimeZone:readyToBeSendTask.remindersTimeZone,
-          createdAt:readyToBeSendTask.createdAt,
-          updatedAt:readyToBeSendTask.updatedAt
-        }
-      }
+      data: {
+        createdTask: {
+          _id: readyToBeSendTask._id,
+          title: readyToBeSendTask.title,
+          description: readyToBeSendTask.description,
+          category: readyToBeSendTask.category,
+          priority: readyToBeSendTask.priority,
+          dueDate: readyToBeSendTask.dueDate,
+          status: readyToBeSendTask.status,
+          reminderTimes: readyToBeSendTask.reminderTimes,
+          reminderUnit: readyToBeSendTask.reminderUnit,
+          remindersTimeZone: readyToBeSendTask.remindersTimeZone,
+          createdAt: readyToBeSendTask.createdAt,
+          updatedAt: readyToBeSendTask.updatedAt,
+        },
+      },
     });
   } catch (error) {
     return res.status(400).json({ status: "ERROR", message: error.message });
@@ -321,21 +290,283 @@ const showAllUserTasks = async (req, res) => {
     return res.status(400).json({ status: "ERROR", message: error.message });
   }
 };
+const deleteTask = async (req, res) => {
+  let { taskId, teamId } = req.body;
+  let { taskOwner } = req.query;
+  //validation of the content of the request
+  if (taskId && taskOwner) {
+    taskId = taskId.trim();
+    taskOwner = taskOwner.trim();
+  }
+  if (teamId) teamId = teamId.trim();
+  if (!taskId || !taskOwner)
+    return res.status(400).json({
+      status: "FAIL",
+      message: "taskId value and taskOwner query are required!",
+    });
+  if (taskOwner !== "team" && taskOwner !== "user")
+    return res.status(400).json({
+      status: "FAIL",
+      message: "taskOwner query should be only whether 'team' or 'user'.",
+    });
+  if (taskOwner === "team" && !teamId)
+    return res.status(400).json({
+      status: "FAIL",
+      message: `when taskOwner is "team" , team ID is required`,
+    });
+
+  try {
+    //check if the task is exitent or not
+    let wantedTask = await TaskModel.findById(taskId);
+    if (!wantedTask)
+      return res.status(404).json({
+        status: "FAIL",
+        message: "The task wanted to be deleted doesn't already exist!",
+      });
+
+    let cancelingTaskScheduledNotificationsResult;
+    if (taskOwner === "user") {
+      //delete all scheduled notifications related to this task
+      cancelingTaskScheduledNotificationsResult =
+        await agendaController.cancelScheduledJob(null, taskId, req.user._id);
+    } else if (taskOwner === "team") {
+      //searching for the team before delete the task from the team
+      const checkedTeam = await TeamModel.findById(teamId);
+      if (!checkedTeam)
+        return res
+          .status(404)
+          .json({ status: "FAIL", message: "This team doesn't exist!" });
+      //check the authorization of the team member who wants to do this action
+      let isAllowedFlag = false;
+      checkedTeam.members.forEach((ele) => {
+        if (ele.ID == req.user._id && ele.role === "admin")
+          isAllowedFlag = true;
+      });
+      if (!isAllowedFlag) {
+        return res.status(400).json({
+          status: "FAIL",
+          message: "this Action is allowed only for admins!",
+        });
+      }
+      //delete all scheduled notifications related to this team task
+      cancelingTaskScheduledNotificationsResult =
+        await agendaController.cancelScheduledJob(null, taskId, null);
+    }
+    //check the return value of the scheduled job cancel function
+    if (cancelingTaskScheduledNotificationsResult.status === "ERROR") {
+      return res.status(400).json({
+        status: "ERROR",
+        message: cancelingTaskScheduledNotificationsResult.message,
+      });
+    }
+    //deleting the task itself
+    await TaskModel.findByIdAndDelete(taskId);
+    return res.status(200).json({
+      status: "SUCCESS",
+      message: "The wanted task was deleted successfully.",
+    });
+  } catch (error) {
+    return res.status(400).json({ status: "ERROR", message: error.message });
+  }
+};
+const updateTask = async (req, res) => {
+  let {
+    taskId,
+    teamId,
+    newTitle,
+    newDescription,
+    newCategory,
+    newPriority,
+    newDueDate,
+    newStatus,
+    newReminderTimes,
+    newReminderUnit,
+    newRemindersTimeZone,
+  } = req.body;
+  let { taskOwner } = req.query;
+  //validation of client-side sent data
+  if (taskId && taskOwner) {
+    taskId = taskId.trim();
+    taskOwner = taskOwner.trim();
+  }
+  if (teamId) {
+    teamId = teamId.trim();
+  }
+  if (!taskId || !taskOwner) {
+    return res.status(400).json({
+      status: "FAIL",
+      message: "taskId and taskOwner shouldn't be empty",
+    });
+  }
+  //check if taskOwner is team or user
+  if (taskOwner !== "team" && taskOwner !== "user")
+    return res.status(400).json({
+      status: "FAIL",
+      message: "taskOwner query should be only whether 'team' or 'user'.",
+    });
+  if (taskOwner === "team" && !teamId)
+    return res.status(400).json({
+      status: "FAIL",
+      message: `when taskOwner is "team" , team ID is required`,
+    });
+  //preparing the new task field which are wanted to be updated
+  if (newTitle) newTitle = newTitle.trim;
+  if (newDescription) newDescription = newDescription.trim;
+  if (newCategory) newCategory = newCategory.trim;
+  if (newPriority) newPriority = newPriority.trim;
+  if (newDueDate) newDueDate = newDueDate.trim;
+  if (newStatus) newStatus = newStatus.trim;
+  if (newReminderTimes) newReminderTimes = newReminderTimes.trim;
+  if (newReminderTimes) newReminderTimes = parseInt(newReminderTimes);
+  if (newReminderUnit) newReminderUnit = newReminderUnit.trim;
+  if (newRemindersTimeZone) newRemindersTimeZone = newRemindersTimeZone.trim;
+
+  try {
+    let wantedTask = await TaskModel.findById(taskId);
+    if (!wantedTask)
+      return res.status(404).json({
+        status: "FAIL",
+        message: "The wanted-to-be-updated task doesn't exist!",
+      });
+
+    //updating the task fields
+    if (newTitle) wantedTask.title = newTitle;
+    if (newDescription) wantedTask.description = newDescription;
+    if (newCategory) wantedTask.category = newCategory;
+    if (newPriority) wantedTask.priority = newPriority;
+    if (newStatus) wantedTask.status = newStatus;
+
+    //handling the updating of the scheduled notifications
+    if (
+      (newDueDate && newDueDate !== wantedTask.dueDate) ||
+      (newReminderTimes && newReminderTimes != wantedTask.reminderTimes) ||
+      (newReminderUnit && newReminderUnit !== wantedTask.reminderUnit) ||
+      (newRemindersTimeZone &&
+        newRemindersTimeZone !== wantedTask.remindersTimeZone)
+    ) {
+      if (taskOwner === "user") {
+        //delete all scheduled notifications related to this task
+        let cancelingTaskScheduledNotificationsResult =
+          await agendaController.cancelScheduledJob(null, taskId, req.user._id);
+        //check the return value of the scheduled job cancel function
+        if (cancelingTaskScheduledNotificationsResult.status === "ERROR") {
+          return res.status(400).json({
+            status: "ERROR",
+            message: cancelingTaskScheduledNotificationsResult.message,
+          });
+        }
+
+        //updating the new data of time in task
+        if (newDueDate && newDueDate !== wantedTask.dueDate)
+          wantedTask.dueDate = newDueDate;
+        if (newReminderTimes && newReminderTimes != wantedTask.reminderTimes)
+          wantedTask.reminderTimes = newReminderTimes;
+        if (newReminderUnit && newReminderUnit !== wantedTask.reminderUnit)
+          wantedTask.reminderUnit = newReminderUnit;
+        if (
+          newRemindersTimeZone &&
+          newRemindersTimeZone !== wantedTask.remindersTimeZone
+        )
+          wantedTask.remindersTimeZone = newRemindersTimeZone;
+
+        // creating new scheduled notifications
+        scheduleTaskReminderNotifications(
+          taskId,
+          wantedTask.dueDate,
+          [req.user["_id"]],
+          wantedTask.reminderTimes,
+          wantedTask.reminderUnit,
+          wantedTask.remindersTimeZone,
+          false
+        );
+      } else if (taskOwner === "team") {
+        //searching for the team before assigning the task to it
+        const checkedTeam = await TeamModel.findById(teamId);
+        if (!checkedTeam)
+          return res
+            .status(404)
+            .json({ status: "FAIL", message: "This team doesn't exist!" });
+        //check the authorization of the team member who wants to do this action
+        let isAllowedFlag = false;
+        checkedTeam.members.forEach((ele) => {
+          if (ele.ID == req.user._id && ele.role === "admin")
+            isAllowedFlag = true;
+        });
+        if (!isAllowedFlag) {
+          return res.status(400).json({
+            status: "FAIL",
+            message: "this Action is allowed only for admins!",
+          });
+        }
+        //delete all scheduled notifications related to this task
+        let cancelingTaskScheduledNotificationsResult =
+          await agendaController.cancelScheduledJob(null, taskId, null);
+        //check the return value of the scheduled job cancel function
+        if (cancelingTaskScheduledNotificationsResult.status === "ERROR") {
+          return res.status(400).json({
+            status: "ERROR",
+            message: cancelingTaskScheduledNotificationsResult.message,
+          });
+        }
+
+        //updating the new data of time in task
+        if (newDueDate && newDueDate !== wantedTask.dueDate)
+          wantedTask.dueDate = newDueDate;
+        if (newReminderTimes && newReminderTimes != wantedTask.reminderTimes)
+          wantedTask.reminderTimes = newReminderTimes;
+        if (newReminderUnit && newReminderUnit !== wantedTask.reminderUnit)
+          wantedTask.reminderUnit = newReminderUnit;
+        if (
+          newRemindersTimeZone &&
+          newRemindersTimeZone !== wantedTask.remindersTimeZone
+        )
+          wantedTask.remindersTimeZone = newRemindersTimeZone;
+
+        //create the notifications related to this new task for all team members
+        let teamMembersIDsArray = checkedTeam.members.map((ele) => ele.ID);
+        scheduleTaskReminderNotifications(
+          taskId,
+          wantedTask.dueDate,
+          teamMembersIDsArray,
+          wantedTask.reminderTimes,
+          wantedTask.reminderUnit,
+          wantedTask.remindersTimeZone,
+          true
+        );
+      }
+    }
+    let savedTask = await wantedTask.save();
+    return res.status(201).json({
+      status: "SUCCESS",
+      message: "The task updating was created successfully.",
+      data: {
+        updatedTask: {
+          _id: savedTask._id,
+          title: savedTask.title,
+          description: savedTask.description,
+          category: savedTask.category,
+          priority: savedTask.priority,
+          dueDate: savedTask.dueDate,
+          status: savedTask.status,
+          reminderTimes: savedTask.reminderTimes,
+          reminderUnit: savedTask.reminderUnit,
+          remindersTimeZone: savedTask.remindersTimeZone,
+          createdAt: savedTask.createdAt,
+          updatedAt: savedTask.updatedAt,
+        },
+      },
+    });
+  } catch (error) {
+    return res.status(400).json({ status: "ERROR", message: error.message });
+  }
+};
 
 module.exports = {
   addNewTask,
   scheduleTaskReminderNotifications,
   checkIfSpecificTimeIsInFutureByReminderTimes,
   checkIfSpecificTimeIsInFutureByActualTime,
-  showAllUserTasks
+  showAllUserTasks,
+  deleteTask,
+  updateTask,
 };
-
-//current time Zone is : Africa/Cairo
-
-// at user case this is
-// let tempReminderMessage = `Reminder: Your "${title}" task is due in ${reminderTimes} ${reminderUnit}.`;
-//       let tempDeadlineReminderMessage = `You have missed the deadline for your "${title}" task.`;
-
-// at team case this is
-// let tempReminderMessage = `Reminder: you have a "${title}" task related to Your "${checkedTeam.name}" team,/n this task is due in ${reminderTimes} ${reminderUnit}.`;
-// let tempDeadlineReminderMessage = `You have missed the deadline for your "${title}" task which related to your "${checkedTeam.name}" team.`;

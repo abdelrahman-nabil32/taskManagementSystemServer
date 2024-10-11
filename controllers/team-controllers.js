@@ -4,6 +4,7 @@ const UserModel = require("../models/User-model");
 const TaskModel = require("../models/Task-model");
 const NotificationModel = require("../models/Notification-model");
 const taskController = require("./task-controller");
+const agendaController = require("./agenda-controller");
 const validator = require("validator");
 
 const createNewTeam = async (req, res) => {
@@ -78,6 +79,13 @@ const teamAddRequestSending = async (req, res) => {
       message: "recipientEmail, recipientRole and teamID all are required!",
     });
   }
+  //check if the emai has the valid form of emails or not
+  if (!validator.isEmail(recipientEmail)) {
+    return res.status(400).json({
+      status: "FAIL",
+      message: "This email is not a valid email!",
+    });
+  }
   try {
     //searching for the sender team
     let checkedTeam = await TeamModel.findById(teamID);
@@ -114,7 +122,19 @@ const teamAddRequestSending = async (req, res) => {
     if (isOnTheTeamFlag) {
       return res.status(400).json({
         status: "FAIL",
-        message: "This User is already a member of the team!",
+        message: "This User is already one of the team members!",
+      });
+    }
+    //check if you have already sent an add request to this user or not , to prevent it from sending an add request to the same user twice
+    let repeatedAddRequest = await NotificationModel.findOne({
+      recipient: checkedUser._id,
+      isInteractive: true,
+      message: `Add Request: "${req.user.fullName}" sent you an add request to "${checkedTeam.name}" team.`,
+    });
+    if (repeatedAddRequest) {
+      return res.status(400).json({
+        status: "FAIL",
+        message: "you have already sent an add request to this user!",
       });
     }
     //create informative notification for the sender to inform him ,his add request is pending
@@ -342,17 +362,20 @@ const showAllUserTeams = async (req, res) => {
         .json({ status: "FAIL", message: "This user doesn't exist!" });
     }
     let userTeamsIDsArray = wantedUser.userTeamsArray;
-    let userTeamsArray = [];
-    for (let i = 0; i < userTeamsIDsArray.length; ++i) {
-      let temp = await TeamModel.findById(userTeamsIDsArray[i], {
-        __v: false,
-      });
-      if (temp) {
-        userTeamsArray.push(temp);
-      }
-    }
 
-    return res.status(200).json({ status: "SUCCESS", data: userTeamsArray });
+    let readyToBeSentUserTeamsArray = await TeamModel.find({
+      _id: { $in: userTeamsIDsArray },
+    })
+      .populate({
+        path: "members.ID",
+        model: "User",
+        select: "-password -__v -refreshToken -userTeamsArray",
+      })
+      .select("-__v -members._id");
+
+    return res
+      .status(200)
+      .json({ status: "SUCCESS", data: readyToBeSentUserTeamsArray });
   } catch (error) {
     return res.status(400).json({ status: "ERROR", message: error.message });
   }
@@ -362,5 +385,5 @@ module.exports = {
   createNewTeam,
   teamAddRequestSending,
   teamAddRequestResponse,
-  showAllUserTeams
+  showAllUserTeams,
 };
