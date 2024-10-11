@@ -271,21 +271,53 @@ const addNewTask = async (req, res) => {
     return res.status(400).json({ status: "ERROR", message: error.message });
   }
 };
-const showAllUserTasks = async (req, res) => {
-  try {
-    const AllUserTasksArray = await TaskModel.find(
-      {
-        relatedUser: new mongoose.Types.ObjectId(req.user["_id"]),
-      },
-      {
-        relatedUser: false,
-        relatedTeam: false,
-        __v: false,
-      }
-    );
+const showTasks = async (req, res) => {
+  let { teamId } = req.body;
+  let { tasksOwner } = req.query;
+  //validation of the sent values
+  if (tasksOwner) tasksOwner = tasksOwner.trim();
+  if (teamId) teamId = teamId.trim();
+  if (!tasksOwner)
     return res
-      .status(200)
-      .json({ status: "SUCCESS", userTasks: AllUserTasksArray });
+      .status(400)
+      .json({ status: "FAIL", message: "tasksOwner is required!" });
+  if (tasksOwner !== "team" && tasksOwner !== "user")
+    return res.status(400).json({
+      status: "FAIL",
+      message: "tasksOwner query should be only whether 'team' or 'user'.",
+    });
+  if (tasksOwner === "team" && !teamId)
+    return res.status(400).json({
+      status: "FAIL",
+      message: `when tasksOwner is "team" , team ID is required`,
+    });
+  //finding the tasks
+  try {
+    let AllTasksArray;
+    if (tasksOwner === "user") {
+      AllTasksArray = await TaskModel.find(
+        {
+          relatedUser: new mongoose.Types.ObjectId(req.user["_id"]),
+        },
+        {
+          relatedUser: false,
+          relatedTeam: false,
+          __v: false,
+        }
+      );
+    } else if (tasksOwner === "team") {
+      AllTasksArray = await TaskModel.find(
+        {
+          relatedTeam: new mongoose.Types.ObjectId(teamId),
+        },
+        {
+          relatedUser: false,
+          relatedTeam: false,
+          __v: false,
+        }
+      );
+    }
+    return res.status(200).json({ status: "SUCCESS", allTasks: AllTasksArray });
   } catch (error) {
     return res.status(400).json({ status: "ERROR", message: error.message });
   }
@@ -566,7 +598,7 @@ module.exports = {
   scheduleTaskReminderNotifications,
   checkIfSpecificTimeIsInFutureByReminderTimes,
   checkIfSpecificTimeIsInFutureByActualTime,
-  showAllUserTasks,
+  showTasks,
   deleteTask,
   updateTask,
 };

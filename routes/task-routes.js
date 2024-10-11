@@ -4,7 +4,7 @@ const taskController = require('../controllers/task-controller');
 const taskRouter = express.Router();
 
 taskRouter.post("/add/newTask",sessionController.accessTokenValidation,taskController.addNewTask);
-taskRouter.get("/show/allUserTasks",sessionController.accessTokenValidation,taskController.showAllUserTasks);
+taskRouter.get("/show/allTasks",sessionController.accessTokenValidation,taskController.showTasks);
 taskRouter.delete("/delete/oneTask",sessionController.accessTokenValidation,taskController.deleteTask);
 taskRouter.patch("/update/oneTask",sessionController.accessTokenValidation,taskController.updateTask);
 
