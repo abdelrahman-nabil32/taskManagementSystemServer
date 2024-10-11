@@ -290,7 +290,6 @@ const showTasks = async (req, res) => {
     return res.status(400).json({
       status: "FAIL",
       message: `when tasksOwner is "team" , team ID is required`,
-      id:teamId
     });
   //finding the tasks
   try {
