@@ -380,10 +380,104 @@ const showAllUserTeams = async (req, res) => {
     return res.status(400).json({ status: "ERROR", message: error.message });
   }
 };
+const deleteTeamUser = async (req, res) => {
+  let { teamId, userId } = req.body;
+  //validation of sent data
+  if (teamId && userId) {
+    teamId = teamId.trim();
+    userId = userId.trim();
+  }
+  if (!teamId || !userId) {
+    return res
+      .status(400)
+      .json({ status: "FAIL", message: "teamId and userId are required!" });
+  }
+  try {
+    //searching for the team
+    let checkedTeam = await TeamModel.findById(teamId);
+    if (!checkedTeam) {
+      return res.status(404).json({
+        status: "FAIL",
+        message: "This team does not exist!",
+      });
+    }
+    //check the authorization of the team member who wants to do this action
+    let isAllowedFlag = false;
+    checkedTeam.members.forEach((ele) => {
+      if (
+        (ele.ID == req.user._id && ele.role === "admin") ||
+        req.user._id == userId
+      )
+        isAllowedFlag = true;
+    });
+    if (!isAllowedFlag) {
+      return res.status(400).json({
+        status: "FAIL",
+        message:
+          "this Action is allowed only for admins to delete any team user, or for the user who wants to delete his(her)self!",
+      });
+    }
+    //searching for the wanted-to-be-deleted user
+    let wantedUser = await UserModel.findById(userId);
+    if (!wantedUser) {
+      return res
+        .status(404)
+        .json({
+          status: "FAIL",
+          message: "this user doesn't exist in the entire system!",
+        });
+    }
+    //check if the wanted user is already involved in the team or not
+    let isOnTheTeamFlag = false;
+    checkedTeam.members.forEach((ele) => {
+      if (ele.ID == `${wantedUser["_id"]}`) isOnTheTeamFlag = true;
+    });
+    if (!isOnTheTeamFlag) {
+      return res.status(400).json({
+        status: "FAIL",
+        message: "This User already isn't one of the team members!",
+      });
+    }
+    //delete the team from the user array
+    wantedUser.userTeamsArray = wantedUser.userTeamsArray.filter(
+      (ele) => `${ele}` != `${checkedTeam["_id"]}`
+    );
+    //delete the user form the team
+    checkedTeam.members = checkedTeam.members.filter(
+      (ele) => `${ele.ID}` != `${wantedUser["_id"]}`
+    );
+    //saving the changes of user and team
+    await wantedUser.save();
+    await checkedTeam.save();
+
+    //searching for all team tasks
+    let allTeamTasks = await TaskModel.find({
+      relatedTeam: checkedTeam["_id"],
+    });
+    //cancel all team scheduled jobs related to this deleted user
+    for (let i = 0; i < allTeamTasks.length; ++i) {
+      agendaController.cancelScheduledJob(
+        null,
+        allTeamTasks[i]._id,
+        wantedUser["_id"]
+      );
+    }
+
+    return res
+      .status(200)
+      .json({
+        status: "SUCCESS",
+        message: "The user was deleted from the team successfully.",
+      });
+  } catch (error) {
+    return res.status(400).json({ status: "ERROR", message: error.message });
+  }
+};
 
 module.exports = {
   createNewTeam,
   teamAddRequestSending,
   teamAddRequestResponse,
   showAllUserTeams,
+  deleteTeamUser
 };

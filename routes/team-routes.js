@@ -7,6 +7,7 @@ teamRouter.post("/add/newTeam",sessionController.accessTokenValidation,teamContr
 teamRouter.post("/send/teamAddRequest",sessionController.accessTokenValidation,teamController.teamAddRequestSending);
 teamRouter.post("/response/teamAddRequest",sessionController.accessTokenValidation,teamController.teamAddRequestResponse);
 teamRouter.get("/show/allUserTeams",sessionController.accessTokenValidation,teamController.showAllUserTeams);
+teamRouter.delete("/delete/oneUser",sessionController.accessTokenValidation,teamController.deleteTeamUser);
 
 
 module.exports = teamRouter;
