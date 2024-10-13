@@ -78,7 +78,7 @@ const registration = async (req, res) => {
     const refreshToken = jwt.sign(
       { tokenUserID: savedUser["_id"] },
       process.env.REFRESH_TOKEN_SECRET_KEY,
-      { expiresIn: "1d" }
+      { expiresIn: "7m" }
     );
     const accessToken = jwt.sign(
       {
@@ -138,7 +138,7 @@ const login = async (req, res) => {
     const refreshToken = jwt.sign(
       { tokenUserID: checkedUser["_id"] },
       process.env.REFRESH_TOKEN_SECRET_KEY,
-      { expiresIn: "1d" }
+      { expiresIn: "7m" }
     );
     const accessToken = jwt.sign(
       {
