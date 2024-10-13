@@ -442,16 +442,16 @@ const updateTask = async (req, res) => {
       message: `when taskOwner is "team" , team ID is required`,
     });
   //preparing the new task field which are wanted to be updated
-  if (newTitle) newTitle = newTitle.trim;
-  if (newDescription) newDescription = newDescription.trim;
-  if (newCategory) newCategory = newCategory.trim;
-  if (newPriority) newPriority = newPriority.trim;
-  if (newDueDate) newDueDate = newDueDate.trim;
-  if (newStatus) newStatus = newStatus.trim;
-  if (newReminderTimes) newReminderTimes = newReminderTimes.trim;
+  if (newTitle) newTitle = newTitle.trim();
+  if (newDescription) newDescription = newDescription.trim();
+  if (newCategory) newCategory = newCategory.trim();
+  if (newPriority) newPriority = newPriority.trim();
+  if (newDueDate) newDueDate = newDueDate.trim();
+  if (newStatus) newStatus = newStatus.trim();
+  if (newReminderTimes) newReminderTimes = newReminderTimes.trim();
   if (newReminderTimes) newReminderTimes = parseInt(newReminderTimes);
-  if (newReminderUnit) newReminderUnit = newReminderUnit.trim;
-  if (newRemindersTimeZone) newRemindersTimeZone = newRemindersTimeZone.trim;
+  if (newReminderUnit) newReminderUnit = newReminderUnit.trim();
+  if (newRemindersTimeZone) newRemindersTimeZone = newRemindersTimeZone.trim();
 
   try {
     let wantedTask = await TaskModel.findById(taskId);
@@ -476,6 +476,32 @@ const updateTask = async (req, res) => {
       (newRemindersTimeZone &&
         newRemindersTimeZone !== wantedTask.remindersTimeZone)
     ) {
+      //validation if the new timing notification is valid "in future"
+        let dueDateCheckingValue = (newDueDate && newDueDate !== wantedTask.dueDate)?newDueDate:wantedTask.dueDate;
+        let reminderTimesCheckingValue = (newReminderTimes && newReminderTimes != wantedTask.reminderTimes)?newReminderTimes:wantedTask.reminderTimes;
+        let reminderUnitCheckingValue = (newReminderUnit && newReminderUnit !== wantedTask.reminderUnit)?newReminderUnit:wantedTask.reminderUnit;
+        let remindersTimeZoneCheckingValue = (newRemindersTimeZone && newRemindersTimeZone !== wantedTask.remindersTimeZone)?newRemindersTimeZone:wantedTask.remindersTimeZone;
+        //checking the deadline validation
+        if (!checkIfSpecificTimeIsInFutureByActualTime(dueDateCheckingValue, remindersTimeZoneCheckingValue))
+          return res.status(400).json({
+            status: "FAIL",
+            message:
+              "The task deadline time is in the past. Please select a future date and time.",
+          });
+        //checking the reminder time
+        if (
+        !checkIfSpecificTimeIsInFutureByReminderTimes(
+          dueDateCheckingValue,
+          parseInt(reminderTimesCheckingValue),
+          reminderUnitCheckingValue,
+          remindersTimeZoneCheckingValue
+        )
+      )
+        return res.status(400).json({
+          status: "FAIL",
+          message:
+            "The task reminder time is in the past. Please select a future date and time.",
+        });
       if (taskOwner === "user") {
         //delete all scheduled notifications related to this task
         let cancelingTaskScheduledNotificationsResult =
@@ -489,17 +515,21 @@ const updateTask = async (req, res) => {
         }
 
         //updating the new data of time in task
-        if (newDueDate && newDueDate !== wantedTask.dueDate)
+        if (newDueDate && newDueDate !== wantedTask.dueDate){
           wantedTask.dueDate = newDueDate;
-        if (newReminderTimes && newReminderTimes != wantedTask.reminderTimes)
+        }
+        if (newReminderTimes && newReminderTimes != wantedTask.reminderTimes){
           wantedTask.reminderTimes = newReminderTimes;
-        if (newReminderUnit && newReminderUnit !== wantedTask.reminderUnit)
+        }
+        if (newReminderUnit && newReminderUnit !== wantedTask.reminderUnit){
           wantedTask.reminderUnit = newReminderUnit;
+        }
         if (
           newRemindersTimeZone &&
           newRemindersTimeZone !== wantedTask.remindersTimeZone
-        )
+        ){
           wantedTask.remindersTimeZone = newRemindersTimeZone;
+        }
 
         // creating new scheduled notifications
         scheduleTaskReminderNotifications(
