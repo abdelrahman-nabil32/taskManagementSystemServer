@@ -462,7 +462,11 @@ const deleteTeamUser = async (req, res) => {
         wantedUser["_id"]
       );
     }
-
+    //if the deleted user was the last member of the team
+    //delete all task related to this team
+    await TaskModel.deleteMany({ relatedTeam: teamId });
+    //delete the empty team
+    await TeamModel.findByIdAndDelete(teamId);
     return res
       .status(200)
       .json({
