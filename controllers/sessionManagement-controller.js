@@ -89,7 +89,7 @@ const registration = async (req, res) => {
         email,
       },
       process.env.ACCESS_TOKEN_SECRET_KEY,
-      { expiresIn: "1h" }
+      { expiresIn: "5m" }
     ); // may be changes here
     //storing the refresh token in db
     savedUser.refreshToken = refreshToken;
@@ -149,7 +149,7 @@ const login = async (req, res) => {
         email,
       },
       process.env.ACCESS_TOKEN_SECRET_KEY,
-      { expiresIn: "1h" }
+      { expiresIn: "5m" }
     ); // may be changes here
     //storing the refresh token in db
     checkedUser.refreshToken = refreshToken;
@@ -256,7 +256,7 @@ const getNewAccessTokenByRefreshToken = async (req, res) => {
         email: checkedUser.email,
       },
       process.env.ACCESS_TOKEN_SECRET_KEY,
-      { expiresIn: "1h" }
+      { expiresIn: "5m" }
     ); // may be changes here
 
     return res

@@ -5,7 +5,7 @@ const sessionRouter = express.Router();
 sessionRouter.post("/register",sessionController.registration);
 sessionRouter.post("/login",sessionController.login);
 sessionRouter.post("/logout",sessionController.logout);
-sessionRouter.get("/newAccessToken",sessionController.getNewAccessTokenByRefreshToken);
+sessionRouter.post("/newAccessToken",sessionController.getNewAccessTokenByRefreshToken);
 
 
 module.exports = sessionRouter;
