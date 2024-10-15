@@ -420,12 +420,10 @@ const deleteTeamUser = async (req, res) => {
     //searching for the wanted-to-be-deleted user
     let wantedUser = await UserModel.findById(userId);
     if (!wantedUser) {
-      return res
-        .status(404)
-        .json({
-          status: "FAIL",
-          message: "this user doesn't exist in the entire system!",
-        });
+      return res.status(404).json({
+        status: "FAIL",
+        message: "this user doesn't exist in the entire system!",
+      });
     }
     //check if the wanted user is already involved in the team or not
     let isOnTheTeamFlag = false;
@@ -463,21 +461,217 @@ const deleteTeamUser = async (req, res) => {
       );
     }
     //if the deleted user was the last member of the team.
-    if(checkedTeam.members.length <= 0){
-    //delete all task related to this team
-    await TaskModel.deleteMany({ relatedTeam: teamId });
-    //delete the empty team
-    await TeamModel.findByIdAndDelete(teamId);
+    if (checkedTeam.members.length <= 0) {
+      //delete all task related to this team
+      await TaskModel.deleteMany({ relatedTeam: teamId });
+      //delete the empty team
+      await TeamModel.findByIdAndDelete(teamId);
     }
-    return res
-      .status(200)
-      .json({
-        status: "SUCCESS",
-        message: "The user was deleted from the team successfully.",
-      });
+    return res.status(200).json({
+      status: "SUCCESS",
+      message: "The user was deleted from the team successfully.",
+    });
   } catch (error) {
     return res.status(400).json({ status: "ERROR", message: error.message });
   }
+};
+const teamSSE = async (req, res) => {
+  // Set the headers for SSE
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  // Send an initial message to confirm the connection
+  res.write(
+    `data: ${JSON.stringify({
+      message: "Connected to team SSE changes",
+    })}\n\n`
+  );
+
+  // Watch for changes in the team
+  const teamStream = TeamModel.watch([
+    {
+      $match: {
+        $or: [
+          {
+            "fullDocument.members": {
+              $elemMatch: {
+                ID: new mongoose.Types.ObjectId(req.user._id),
+              },
+            },
+          },
+          { "documentKey._id": { $exists: true } },
+        ],
+      },
+    },
+  ]);
+  const teamTasksStream = TaskModel.watch([
+    {
+      $match: {
+        $or: [
+          {
+            "fullDocument.relatedTeam": { $ne: null },
+          },
+          { "documentKey._id": { $exists: true } },
+        ],
+      },
+    },
+  ]);
+  //handling the changes in the collection
+  teamStream.on("change", async (change) => {
+    const { operationType, documentKey } = change;
+    try {
+      if (operationType === "insert") {
+        let checkedTeam = await TeamModel.findById(change.fullDocument._id)
+          .populate({
+            path: "members.ID",
+            model: "User",
+            select: "-password -__v -refreshToken -userTeamsArray",
+          })
+          .select("-__v -members._id");
+        //check if the team does exist and the logged-in user involved in it
+        let isTeamMine = false;
+        if (checkedTeam) {
+          checkedTeam.members.forEach((ele) => {
+            if (ele.ID._id.toString() === req.user._id.toString()) {
+              isTeamMine = true;
+            }
+          });
+        }
+        if (isTeamMine) {
+          res.write(
+            `data:${JSON.stringify({
+              collName: change.ns.coll,
+              collData: checkedTeam,
+            })}\n\n`
+          );
+        }
+      } else if (operationType === "update") {
+        //search for the updated record inside database to check if it's belongs to the logged-in user or not
+        let checkedTeam = await TeamModel.findById(documentKey._id)
+          .populate({
+            path: "members.ID",
+            model: "User",
+            select: "-password -__v -refreshToken -userTeamsArray",
+          })
+          .select("-__v -members._id");
+        //check if the team does exist and the logged-in user involved in it
+        let isTeamMine = false;
+        if (checkedTeam) {
+          checkedTeam.members.forEach((ele) => {
+            if (ele.ID._id.toString() === req.user._id.toString()) {
+              isTeamMine = true;
+            }
+          });
+        }
+        if (isTeamMine) {
+          res.write(
+            `data: ${JSON.stringify({
+              collName: change.ns.coll,
+              collData: checkedTeam,
+            })}\n\n`
+          );
+        }
+      } else if (operationType === "delete") {
+        res.write(
+          `data: ${JSON.stringify({
+            collName: change.ns.coll,
+            collData: documentKey._id,
+          })}\n\n`
+        );
+      }
+    } catch (error) {
+      console.error(error.message);
+      res.write(`event: error\ndata: "${error.message}"\n\n`);
+    }
+  });
+  teamTasksStream.on("change", async (change) => {
+    const { operationType, documentKey } = change;
+    try {
+      if (operationType === "insert") {
+        let checkedUser = await UserModel.findById(req.user._id);
+        let isTaskRelatedToUserTeam = false;
+        if (checkedUser) {
+          checkedUser.userTeamsArray.forEach((ele) => {
+            if (ele.toString() === change.fullDocument.relatedTeam.toString()) {
+              isTaskRelatedToUserTeam = true;
+            }
+          });
+        }
+        if (isTaskRelatedToUserTeam) {
+          res.write(
+            `data:${JSON.stringify({
+              collName: change.ns.coll,
+              collData: {
+                _id: change.fullDocument._id,
+                title: change.fullDocument.title,
+                description: change.fullDocument.description,
+                category: change.fullDocument.category,
+                priority: change.fullDocument.priority,
+                dueDate: change.fullDocument.dueDate,
+                status: change.fullDocument.status,
+                reminderTimes: change.fullDocument.reminderTimes,
+                reminderUnit: change.fullDocument.reminderUnit,
+                remindersTimeZone: change.fullDocument.remindersTimeZone,
+                createdAt: change.fullDocument.createdAt,
+                updatedAt: change.fullDocument.updatedAt,
+              },
+            })}\n\n`
+          );
+        }
+      } else if (operationType === "update") {
+        let checkedTask = await TaskModel.findById(documentKey._id);
+        let checkedUser = await UserModel.findById(req.user._id);
+
+        let isTaskRelatedToUserTeam = false;
+        if (checkedUser && checkedTask) {
+          checkedUser.userTeamsArray.forEach((ele) => {
+            if (ele.toString() === checkedTask.relatedTeam.toString()) {
+              isTaskRelatedToUserTeam = true;
+            }
+          });
+        }
+        if (isTaskRelatedToUserTeam) {
+          res.write(
+            `data:${JSON.stringify({
+              collName: change.ns.coll,
+              collData: {
+                _id: checkedTask._id,
+                title: checkedTask.title,
+                description: checkedTask.description,
+                category: checkedTask.category,
+                priority: checkedTask.priority,
+                dueDate: checkedTask.dueDate,
+                status: checkedTask.status,
+                reminderTimes: checkedTask.reminderTimes,
+                reminderUnit: checkedTask.reminderUnit,
+                remindersTimeZone: checkedTask.remindersTimeZone,
+                createdAt: checkedTask.createdAt,
+                updatedAt: checkedTask.updatedAt,
+              },
+            })}\n\n`
+          );
+        }
+      } else if (operationType === "delete") {
+        res.write(
+          `data: ${JSON.stringify({
+            collName: change.ns.coll,
+            collData: documentKey._id,
+          })}\n\n`
+        );
+      }
+    } catch (error) {
+      console.error(error.message);
+      res.write(`event: error\ndata: "${error.message}"\n\n`);
+    }
+  });
+  // Handle client disconnect
+  req.on("close", () => {
+    teamStream.close();
+    teamTasksStream.close();
+    res.end();
+  });
 };
 
 module.exports = {
@@ -485,5 +679,6 @@ module.exports = {
   teamAddRequestSending,
   teamAddRequestResponse,
   showAllUserTeams,
-  deleteTeamUser
+  deleteTeamUser,
+  teamSSE,
 };

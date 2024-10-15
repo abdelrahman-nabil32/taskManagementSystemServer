@@ -5,5 +5,6 @@ const notificationRouter = express.Router();
 
 notificationRouter.get("/show/allUserNotifications",sessionController.accessTokenValidation,notificationController.showAllUserNotifications);
 notificationRouter.delete("/delete/oneNotification",sessionController.accessTokenValidation,notificationController.deleteNotification);
+notificationRouter.get("/SSE",sessionController.accessTokenValidation,notificationController.notificationSSE);
 
 module.exports = notificationRouter;

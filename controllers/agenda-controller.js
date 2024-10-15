@@ -91,14 +91,16 @@ const cancelScheduledJob = async (jobName, taskId, recipientId) => {
         "data.taskId": taskId,
         "data.recipientId": recipientId,
       });
-      return {status:"SUCCESS"};
+    return { status: "SUCCESS" };
   } catch (error) {
-    return {status:"ERROR",message:
-      `Failed to cancel jobs ${
+    return {
+      status: "ERROR",
+      message: `Failed to cancel jobs ${
         jobName ? `for job whose name is : ${jobName}` : ""
       }, ${taskId ? `for Task whose ID is : ${taskId}` : ""}, ${
         recipientId ? `for user whose ID is : ${recipientId}` : ""
-      } : ${error.message}`};
+      } : ${error.message}`,
+    };
   }
 };
 
