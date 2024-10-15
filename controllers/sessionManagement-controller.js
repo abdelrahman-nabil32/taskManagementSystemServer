@@ -78,7 +78,7 @@ const registration = async (req, res) => {
     const refreshToken = jwt.sign(
       { tokenUserID: savedUser["_id"] },
       process.env.REFRESH_TOKEN_SECRET_KEY,
-      { expiresIn: "7m" }
+      { expiresIn: "1d" }
     );
     const accessToken = jwt.sign(
       {
@@ -89,7 +89,7 @@ const registration = async (req, res) => {
         email,
       },
       process.env.ACCESS_TOKEN_SECRET_KEY,
-      { expiresIn: "5m" }
+      { expiresIn: "1h" }
     ); // may be changes here
     //storing the refresh token in db
     savedUser.refreshToken = refreshToken;
@@ -138,7 +138,7 @@ const login = async (req, res) => {
     const refreshToken = jwt.sign(
       { tokenUserID: checkedUser["_id"] },
       process.env.REFRESH_TOKEN_SECRET_KEY,
-      { expiresIn: "7m" }
+      { expiresIn: "1d" }
     );
     const accessToken = jwt.sign(
       {
@@ -149,7 +149,7 @@ const login = async (req, res) => {
         email,
       },
       process.env.ACCESS_TOKEN_SECRET_KEY,
-      { expiresIn: "5m" }
+      { expiresIn: "1h" }
     ); // may be changes here
     //storing the refresh token in db
     checkedUser.refreshToken = refreshToken;
@@ -256,7 +256,7 @@ const getNewAccessTokenByRefreshToken = async (req, res) => {
         email: checkedUser.email,
       },
       process.env.ACCESS_TOKEN_SECRET_KEY,
-      { expiresIn: "5m" }
+      { expiresIn: "1h" }
     ); // may be changes here
 
     return res

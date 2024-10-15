@@ -68,6 +68,13 @@ const notificationSSE = async (req, res) => {
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
+  // Send an initial message to confirm the connection
+  res.write(
+    `data: ${JSON.stringify({
+      message: "Connected to notification SSE changes",
+    })}\n\n`
+  );
+
   // Watch for changes in the Notifications
   const notificationStream = NotificationModel.watch([
     {
