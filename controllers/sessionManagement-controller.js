@@ -78,7 +78,7 @@ const registration = async (req, res) => {
     const refreshToken = jwt.sign(
       { tokenUserID: savedUser["_id"] },
       process.env.REFRESH_TOKEN_SECRET_KEY,
-      { expiresIn: "1d" }
+      { expiresIn: "7m" }
     );
     const accessToken = jwt.sign(
       {
@@ -89,7 +89,7 @@ const registration = async (req, res) => {
         email,
       },
       process.env.ACCESS_TOKEN_SECRET_KEY,
-      { expiresIn: "1h" }
+      { expiresIn: "5m" }
     ); // may be changes here
     //storing the refresh token in db
     savedUser.refreshToken = refreshToken;
@@ -138,7 +138,7 @@ const login = async (req, res) => {
     const refreshToken = jwt.sign(
       { tokenUserID: checkedUser["_id"] },
       process.env.REFRESH_TOKEN_SECRET_KEY,
-      { expiresIn: "1d" }
+      { expiresIn: "7m" }
     );
     const accessToken = jwt.sign(
       {
@@ -149,7 +149,7 @@ const login = async (req, res) => {
         email,
       },
       process.env.ACCESS_TOKEN_SECRET_KEY,
-      { expiresIn: "1h" }
+      { expiresIn: "5m" }
     ); // may be changes here
     //storing the refresh token in db
     checkedUser.refreshToken = refreshToken;
@@ -256,7 +256,7 @@ const getNewAccessTokenByRefreshToken = async (req, res) => {
         email: checkedUser.email,
       },
       process.env.ACCESS_TOKEN_SECRET_KEY,
-      { expiresIn: "1h" }
+      { expiresIn: "5m" }
     ); // may be changes here
 
     return res
@@ -269,6 +269,34 @@ const getNewAccessTokenByRefreshToken = async (req, res) => {
     });
   }
 };
+const accessTokenValidationForSSE = (req, res, next) => {
+  let { accessToken } = req.query;
+  if (accessToken) {
+    accessToken = accessToken.trim();
+  }
+  if (!accessToken)
+    return res
+      .status(401)
+      .json({ status: "FAIL", message: "access token is required" });
+
+  try {
+    const verifiedAccessToken = jwt.verify(
+      accessToken,
+      process.env.ACCESS_TOKEN_SECRET_KEY
+    );
+    req.user = {
+      _id: verifiedAccessToken.tokenUserID,
+      fullName: verifiedAccessToken.fullName,
+      username: verifiedAccessToken.username,
+      email: verifiedAccessToken.email,
+    };
+    next();
+  } catch (error) {
+    return res
+      .status(401)
+      .json({ status: "ERROR", message: "Invalid access token" });
+  }
+};
 
 module.exports = {
   registration,
@@ -276,4 +304,5 @@ module.exports = {
   logout,
   accessTokenValidation,
   getNewAccessTokenByRefreshToken,
+  accessTokenValidationForSSE,
 };
