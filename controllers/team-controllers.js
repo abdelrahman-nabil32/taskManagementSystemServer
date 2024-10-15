@@ -481,14 +481,7 @@ const teamSSE = async (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
-
-  // Send an initial message to confirm the connection
-  res.write(
-    `data: ${JSON.stringify({
-      message: "Connected to team SSE changes",
-    })}\n\n`
-  );
-
+  
   // Watch for changes in the team
   const teamStream = TeamModel.watch([
     {
