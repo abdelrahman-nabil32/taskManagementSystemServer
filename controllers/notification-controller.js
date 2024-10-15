@@ -72,6 +72,7 @@ const notificationSSE = async (req, res) => {
   res.write(
     `data: ${JSON.stringify({
       message: "Connected to notification SSE changes",
+      helly:req.user._id,
     })}\n\n`
   );
 
