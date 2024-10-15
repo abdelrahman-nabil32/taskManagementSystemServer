@@ -482,6 +482,13 @@ const teamSSE = async (req, res) => {
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
   
+  // Send an initial message to confirm the connection
+  res.write(
+    `data: ${JSON.stringify({
+      message: "Connected to Team and Team Tasks SSE changes",
+    })}\n\n`
+  );
+
   // Watch for changes in the team
   const teamStream = TeamModel.watch([
     {
@@ -511,6 +518,15 @@ const teamSSE = async (req, res) => {
       },
     },
   ]);
+
+  teamStream.on("error", (error) => {
+    // Send the error event to the client
+    res.write(`event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`);
+  });
+  teamTasksStream.on("error", (error) => {
+    // Send the error event to the client
+    res.write(`event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`);
+  });
   //handling the changes in the collection
   teamStream.on("change", async (change) => {
     const { operationType, documentKey } = change;

@@ -72,23 +72,31 @@ const notificationSSE = async (req, res) => {
   res.write(
     `data: ${JSON.stringify({
       message: "Connected to notification SSE changes",
-      helly:req.user._id,
     })}\n\n`
   );
-
-  // Watch for changes in the Notifications
+  //Watch for changes in the Notifications
   const notificationStream = NotificationModel.watch([
     {
       $match: {
         $or: [
           {
-            "fullDocument.recipient": new mongoose.Types.ObjectId(req.user._id),
+            "fullDocument.recipient":new mongoose.Types.ObjectId(req.user._id),
           }, // For new notifications
           { "documentKey._id": { $exists: true } }, // For updates or deletes
         ],
       },
     },
   ]);
+
+  notificationStream.on("error", (error) => {
+    // Send the error event to the client
+    res.write(`event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`);
+  });
+
+
+
+
+
   //handling the changes in the collection
   notificationStream.on("change", async (change) => {
     const { operationType, documentKey } = change;
@@ -97,10 +105,15 @@ const notificationSSE = async (req, res) => {
         if (
           change.fullDocument.recipient.toString() === req.user._id.toString()
         ) {
+        let temp = change.fullDocument;
+        delete temp.recipient;
+        delete temp.relatedTask;
+        delete temp.teamAddingRequestInfo;
+        delete temp.__v;
           res.write(
             `data:${JSON.stringify({
               collName: change.ns.coll,
-              collData: change.fullDocument,
+              collData: temp,
             })}\n\n`
           );
         }
@@ -113,10 +126,15 @@ const notificationSSE = async (req, res) => {
           updatedNotification &&
           updatedNotification.recipient.toString() === req.user._id.toString()
         ) {
+          let temp = updatedNotification;
+          delete temp.recipient;
+          delete temp.relatedTask;
+          delete temp.teamAddingRequestInfo;
+          delete temp.__v;
           res.write(
             `data: ${JSON.stringify({
               collName: change.ns.coll,
-              collData:updatedNotification,
+              collData:temp,
             })}\n\n`
           );
         }
