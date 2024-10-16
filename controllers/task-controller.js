@@ -453,7 +453,7 @@ const updateTask = async (req, res) => {
   if (newReminderUnit) newReminderUnit = newReminderUnit.trim();
   if (newRemindersTimeZone) newRemindersTimeZone = newRemindersTimeZone.trim();
 
-  try {
+  try { 
     let wantedTask = await TaskModel.findById(taskId);
     if (!wantedTask)
       return res.status(404).json({
