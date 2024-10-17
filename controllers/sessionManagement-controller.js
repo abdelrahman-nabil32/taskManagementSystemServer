@@ -274,11 +274,9 @@ const accessTokenValidationForSSE = (req, res, next) => {
   if (accessToken) {
     accessToken = accessToken.trim();
   }
-  if (!accessToken)
-    return res
-      .status(401)
-      .json({ status: "FAIL", message: "access token is required" });
-
+  if (!accessToken){
+    return  res.write(`event: error\ndata: ${JSON.stringify({ error: "Access token is required" })}\n\n`);
+    }
   try {
     const verifiedAccessToken = jwt.verify(
       accessToken,
@@ -292,9 +290,7 @@ const accessTokenValidationForSSE = (req, res, next) => {
     };
     next();
   } catch (error) {
-    return res
-      .status(401)
-      .json({ status: "ERROR", message: "Invalid access token" });
+    return  res.write(`event: error\ndata: ${JSON.stringify({ error: "Access token is required" })}\n\n`);
   }
 };
 
