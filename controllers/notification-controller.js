@@ -105,13 +105,13 @@ const notificationSSE = async (req, res) => {
         if (
           change.fullDocument.recipient.toString() === req.user._id.toString()
         ) {
-        let temp = change.fullDocument;
+        let temp = {...change.fullDocument};
         delete temp.recipient;
         delete temp.relatedTask;
         delete temp.teamAddingRequestInfo;
         delete temp.__v;
           res.write(
-            `data:${JSON.stringify({
+            `event: insert\ndata:${JSON.stringify({
               collName: change.ns.coll,
               collData: temp,
             })}\n\n`
@@ -126,13 +126,13 @@ const notificationSSE = async (req, res) => {
           updatedNotification &&
           updatedNotification.recipient.toString() === req.user._id.toString()
         ) {
-          let temp = updatedNotification;
+          let temp = {...updatedNotification};
           delete temp.recipient;
           delete temp.relatedTask;
           delete temp.teamAddingRequestInfo;
           delete temp.__v;
           res.write(
-            `data: ${JSON.stringify({
+            `event: update\ndata: ${JSON.stringify({
               collName: change.ns.coll,
               collData:temp,
             })}\n\n`
@@ -140,7 +140,7 @@ const notificationSSE = async (req, res) => {
         }
       } else if (operationType === "delete") {
         res.write(
-          `data: ${JSON.stringify({
+          `event: delete\ndata: ${JSON.stringify({
             collName: change.ns.coll,
             collData: documentKey._id,
           })}\n\n`

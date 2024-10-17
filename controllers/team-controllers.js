@@ -550,7 +550,7 @@ const teamSSE = async (req, res) => {
         }
         if (isTeamMine) {
           res.write(
-            `data:${JSON.stringify({
+            `event: insert\ndata:${JSON.stringify({
               collName: change.ns.coll,
               collData: checkedTeam,
             })}\n\n`
@@ -576,7 +576,7 @@ const teamSSE = async (req, res) => {
         }
         if (isTeamMine) {
           res.write(
-            `data: ${JSON.stringify({
+            `event: update\ndata: ${JSON.stringify({
               collName: change.ns.coll,
               collData: checkedTeam,
             })}\n\n`
@@ -584,7 +584,7 @@ const teamSSE = async (req, res) => {
         }
       } else if (operationType === "delete") {
         res.write(
-          `data: ${JSON.stringify({
+          `event: delete\ndata: ${JSON.stringify({
             collName: change.ns.coll,
             collData: documentKey._id,
           })}\n\n`
@@ -610,7 +610,7 @@ const teamSSE = async (req, res) => {
         }
         if (isTaskRelatedToUserTeam) {
           res.write(
-            `data:${JSON.stringify({
+            `event: insert\ndata:${JSON.stringify({
               collName: change.ns.coll,
               collData: {
                 _id: change.fullDocument._id,
@@ -643,7 +643,7 @@ const teamSSE = async (req, res) => {
         }
         if (isTaskRelatedToUserTeam) {
           res.write(
-            `data:${JSON.stringify({
+            `event: update\ndata:${JSON.stringify({
               collName: change.ns.coll,
               collData: {
                 _id: checkedTask._id,
@@ -664,7 +664,7 @@ const teamSSE = async (req, res) => {
         }
       } else if (operationType === "delete") {
         res.write(
-          `data: ${JSON.stringify({
+          `event: delete\ndata: ${JSON.stringify({
             collName: change.ns.coll,
             collData: documentKey._id,
           })}\n\n`
