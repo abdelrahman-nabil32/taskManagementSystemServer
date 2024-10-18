@@ -100,7 +100,12 @@ const registration = async (req, res) => {
       message: "User registered successfully",
       data: {
         tokens: { accessToken, refreshToken },
-        userInfo: { fullName },
+        userInfo: {
+          _id: savedUser._id,
+          fullName,
+          username: savedUser.username,
+          email: savedUser.email,
+        },
       },
     });
   } catch (error) {
@@ -160,7 +165,12 @@ const login = async (req, res) => {
       status: "SUCCESS",
       data: {
         tokens: { accessToken, refreshToken },
-        userInfo: { fullName },
+        userInfo: {
+          _id: checkedUser["_id"],
+          fullName,
+          username: checkedUser.username,
+          email: checkedUser.email,
+        },
       },
     });
   } catch (error) {
@@ -274,9 +284,13 @@ const accessTokenValidationForSSE = (req, res, next) => {
   if (accessToken) {
     accessToken = accessToken.trim();
   }
-  if (!accessToken){
-    return  res.write(`event: error\ndata: ${JSON.stringify({ error: "Access token is required" })}\n\n`);
-    }
+  if (!accessToken) {
+    return res.write(
+      `event: error\ndata: ${JSON.stringify({
+        error: "Access token is required",
+      })}\n\n`
+    );
+  }
   try {
     const verifiedAccessToken = jwt.verify(
       accessToken,
@@ -290,7 +304,11 @@ const accessTokenValidationForSSE = (req, res, next) => {
     };
     next();
   } catch (error) {
-    return  res.write(`event: error\ndata: ${JSON.stringify({ error: "Access token is required" })}\n\n`);
+    return res.write(
+      `event: error\ndata: ${JSON.stringify({
+        error: "Access token is required",
+      })}\n\n`
+    );
   }
 };
 

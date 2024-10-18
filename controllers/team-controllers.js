@@ -475,13 +475,65 @@ const deleteTeamUser = async (req, res) => {
     return res.status(400).json({ status: "ERROR", message: error.message });
   }
 };
+const deleteTeam = async (req, res) => {
+  let { teamId } = req.body;
+  //validation of the arrived data
+  if (teamId) teamId = teamId.trim();
+  if (!teamId)
+    return res
+      .status(400)
+      .json({ status: "FAIL", message: "teamId is required!" });
+
+  try {
+    //searching for the team
+    let wantedTeam = await TeamModel.findByIdAndDelete(teamId);
+    if (!wantedTeam)
+      return res
+        .status(404)
+        .json({ status: "FAIL", message: "This team doesn't exist!" });
+    //searching for the team tasks
+    let teamTasksArray = await TaskModel.find({
+      relatedTeam: new mongoose.Types.ObjectId(teamId),
+    }); //maybe i can delete this here
+    //deleting the scheduled jobs of reminders and deadline notifications of these tasks
+    for (let i = 0; i < teamTasksArray.length; ++i) {
+      await agendaController.cancelScheduledJob(
+        null,
+        teamTasksArray[i]._id,
+        null
+      );
+      await TaskModel.findByIdAndDelete(teamTasksArray[i]._id);
+    }
+    //query for the users documents
+    let tempUsersIDsArray = wantedTeam.members.map((ele) => ele.ID);
+    const wantedUsersArray = await UserModel.find({
+      _id: { $in: tempUsersIDsArray },
+    });
+    for (let i = 0; i < wantedUsersArray.length; ++i) {
+      wantedUsersArray[i].userTeamsArray = wantedUsersArray[
+        i
+      ].userTeamsArray.filter(
+        (ele) => ele.toString() !== wantedTeam._id.toString()
+      );
+      await wantedUsersArray[i].save();
+    }
+    return res
+      .status(200)
+      .json({
+        status: "SUCCESS",
+        message: "The team was deleted successfully.",
+      });
+  } catch (error) {
+    return res.status(400).json({ status: "ERROR", message: error.message });
+  }
+};
 const teamSSE = async (req, res) => {
   // Set the headers for SSE
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
-  
+
   // Send an initial message to confirm the connection
   res.write(
     `data: ${JSON.stringify({
@@ -521,11 +573,15 @@ const teamSSE = async (req, res) => {
 
   teamStream.on("error", (error) => {
     // Send the error event to the client
-    res.write(`event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`);
+    res.write(
+      `event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`
+    );
   });
   teamTasksStream.on("error", (error) => {
     // Send the error event to the client
-    res.write(`event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`);
+    res.write(
+      `event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`
+    );
   });
   //handling the changes in the collection
   teamStream.on("change", async (change) => {
@@ -689,5 +745,6 @@ module.exports = {
   teamAddRequestResponse,
   showAllUserTeams,
   deleteTeamUser,
+  deleteTeam,
   teamSSE,
 };
