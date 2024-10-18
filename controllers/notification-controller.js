@@ -107,10 +107,14 @@ const notificationSSE = async (req, res) => {
             `event: insert\ndata:${JSON.stringify({
               collName: change.ns.coll,
               collData: {
+                _id:change.fullDocument._id,
                 message: change.fullDocument.message,
                 isRead: change.fullDocument.isRead,
                 isInteractive: change.fullDocument.isInteractive,
                 interactionInfo: change.fullDocument.interactionInfo,
+                type:change.fullDocument.type,
+                createdAt:change.fullDocument.createdAt,
+                updatedAt:change.fullDocument.updatedAt
               },
             })}\n\n`
           );
@@ -126,10 +130,14 @@ const notificationSSE = async (req, res) => {
             `event: update\ndata: ${JSON.stringify({
               collName: change.ns.coll,
               collData: {
+                _id:updatedNotification._id,
                 message: updatedNotification.message,
                 isRead: updatedNotification.isRead,
                 isInteractive: updatedNotification.isInteractive,
                 interactionInfo: updatedNotification.interactionInfo,
+                type:updatedNotification.type,
+                createdAt:updatedNotification.createdAt,
+                updatedAt:updatedNotification.updatedAt
               },
             })}\n\n`
           );
