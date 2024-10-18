@@ -17,11 +17,13 @@ const updateUserProfile = async (req, res) => {
   if (oldPassword) oldPassword = oldPassword.trim();
   if (newPassword) newPassword = newPassword.trim();
   //validation of the sent data
+  if(newUsername){
   if (/\s/.test(newUsername)) {
     return res
       .status(400)
       .json({ status: "FAIL", message: "username shouldn't have spaces" });
   }
+}
   if (newPassword && !oldPassword) {
     return res.status(400).json({
       status: "FAIL",
@@ -37,8 +39,17 @@ const updateUserProfile = async (req, res) => {
         .status(404)
         .json({ status: "FAIL", message: "This user doesn't exist!" });
     //updating the user profile
+    if(newFullName || newUsername){
+    //password checking
+    let isMatch = await bcrypt.compare(oldPassword, profileUser.password);
+    if (!isMatch) {
+      return res
+        .status(404)
+        .json({ status: "FAIL", message: "your old password isn't vaild." });
+    }
     if (newFullName) profileUser.fullName = newFullName;
     if (newUsername) profileUser.username = newUsername;
+    }
     if (oldPassword && newPassword) {
       //password checking
       let isMatch = await bcrypt.compare(oldPassword, profileUser.password);
