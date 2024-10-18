@@ -80,7 +80,7 @@ const notificationSSE = async (req, res) => {
       $match: {
         $or: [
           {
-            "fullDocument.recipient":new mongoose.Types.ObjectId(req.user._id),
+            "fullDocument.recipient": new mongoose.Types.ObjectId(req.user._id),
           }, // For new notifications
           { "documentKey._id": { $exists: true } }, // For updates or deletes
         ],
@@ -90,12 +90,10 @@ const notificationSSE = async (req, res) => {
 
   notificationStream.on("error", (error) => {
     // Send the error event to the client
-    res.write(`event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`);
+    res.write(
+      `event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`
+    );
   });
-
-
-
-
 
   //handling the changes in the collection
   notificationStream.on("change", async (change) => {
@@ -105,36 +103,34 @@ const notificationSSE = async (req, res) => {
         if (
           change.fullDocument.recipient.toString() === req.user._id.toString()
         ) {
-        let temp = {...change.fullDocument};
-        delete temp.recipient;
-        delete temp.relatedTask;
-        delete temp.teamAddingRequestInfo;
-        delete temp.__v;
           res.write(
             `event: insert\ndata:${JSON.stringify({
               collName: change.ns.coll,
-              collData: temp,
+              collData: {
+                message: change.fullDocument.message,
+                isRead: change.fullDocument.isRead,
+                isInteractive: change.fullDocument.isInteractive,
+                interactionInfo: change.fullDocument.interactionInfo,
+              },
             })}\n\n`
           );
         }
       } else if (operationType === "update") {
         //search for the updated record inside database to check if it's belongs to the logged-in user or not
-        let updatedNotification = await NotificationModel.findById(
-          documentKey._id
-        );
+        let updatedNotification = await NotificationModel.findById(documentKey._id);
         if (
           updatedNotification &&
           updatedNotification.recipient.toString() === req.user._id.toString()
         ) {
-          let temp = {...updatedNotification};
-          delete temp.recipient;
-          delete temp.relatedTask;
-          delete temp.teamAddingRequestInfo;
-          delete temp.__v;
           res.write(
             `event: update\ndata: ${JSON.stringify({
               collName: change.ns.coll,
-              collData:temp,
+              collData: {
+                message: updatedNotification.message,
+                isRead: updatedNotification.isRead,
+                isInteractive: updatedNotification.isInteractive,
+                interactionInfo: updatedNotification.interactionInfo,
+              },
             })}\n\n`
           );
         }
