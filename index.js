@@ -24,7 +24,14 @@ mongoose
     console.log("error in database connection : ", error);
   });
 // ----------------------------
-app.use(cors());
+//specify the allowed pages to access the backend
+const corsOptions = {
+  origin: 'https://ibrahimnoureldeen.github.io', // Only allow your frontend domain
+  methods: 'GET,POST,PUT,DELETE,PATCH', // Specify the allowed HTTP methods
+  credentials:   true, // Allow credentials like cookies or authorization headers
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use("/team", teamRouter);
 app.use("/task", taskRouter);
